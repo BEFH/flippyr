@@ -166,12 +166,10 @@ def writeFiles(fasta, bim, outname, plink=False, silent=False):
 
     if plink:
         import subprocess
-        output = subprocess.run(runPlink,
+        output_ = subprocess.run(runPlink,
               shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        log += "\n\n" + output.stdout.decode("utf-8")
-        if not silent:
-            print("\n" + output.stdout.decode("utf-8"))
-    elif not silent:
+        log.new("\n\n" + output_.stdout.decode("utf-8"))
+    else:
         log.new("\nRun {}.runPlink to remove ambiguous or\n".format(outname) +
         "unmatched sites, flip reverse strand sites and use reference alleles.")
     if os.name != "nt":

@@ -11,7 +11,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='flippyr',
-    version='0.1.6',
+    version='0.1.7',
     description='Find reference mismatches in PLINK filesets and fix them.',
     long_description=('A simple python script tosearch for allele switches,\n'
                       'strand flips, multiallelic sites, ambiguous sites,\n'
