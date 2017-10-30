@@ -116,8 +116,8 @@ def run(fasta, bim, silent=False):
     log = output(silent=silent)
     log.new("\033[1mLoading files...\033[0m",otr=True)
     bim, out = build_table(fasta,bim)
-    if len(out) > 0
-		log.new(out, stderr=True, postfix="\n\n")
+    if len(out) > 0:
+	    log.new(out, stderr=True, postfix="\n\n")
     log.new("\n\033[1mFinding misalignments...\033[0m\n",otr=True)
     bim, out = test(bim)
     log.new(out)
@@ -183,7 +183,7 @@ def writeFiles(fasta, bim, outname, plink=False, silent=False):
     os.chmod(fname,0o755)
     return bim, log, runPlink
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="A simple python script to" +
     "search for allele switches, strand flips, multiallelic sites, " +
     "ambiguous sites, and indels. The output is in the form of a .bim-like " +
@@ -203,3 +203,5 @@ if __name__ == "__main__":
     else:
         outname = args.outputPrefix
     writeFiles(args.fasta,args.bim,outname,args.plink,args.silent)
+if __name__ == "__main__":
+    main()
