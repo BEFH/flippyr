@@ -46,7 +46,6 @@ def build_table(fasta,bim): #Parse bim and fasta
         log = "".join(["\033[1;31mWarning:\033[0;31m Fasta file does not ",
         "contain all chromosomes. Variants\non any chromosome not in the ",
         "fasta file will be marked as missing.\033[0m"])
-        print(log, file=sys.stderr)
     else:
         log = ""
     return df,log
@@ -85,13 +84,43 @@ def test(df): #function to test ref and alt
            "\033[1;32m[{}]\033[0m unmatched"]
     log = "\n".join(log).format(*counts)
     return df, log
+class output():
+    "Print output to the command line."
+    def __init__(self, silent=False, sep="\n"):
+        self.windows = (os.name == "nt")
+        self.silent = silent
+        self.sep = sep
+        self.log = []
+    def __len__(self): return len(self.log)
+    def __getitem__(self,item): return self.log[item]
+    def __repr__(self): return repr(self.log)
+    def new(self,text,stderr=False,postfix="",otr=False):
+        "print text and add to log"
+        stripped = self.strip(text)
+        if not self.silent:
+            if self.windows: text = stripped
+            if stderr:
+                print(text,sys.stderr)
+            else:
+                print(text)
+        if not otr:
+            self.log.append(stripped + postfix)
+    @staticmethod
+    def strip(text):
+        "remove ANSI escapes"
+        return re.sub("\\033[\[\;0-9]*m","",text)
+    def write(self,fname):
+        log = self.sep.join(self.log)
+        with open(fname,"w") as f: f.write(log+"\n")
 def run(fasta, bim, silent=False):
-    if not silent: print("\033[1mLoading files...\033[0m")
-    bim, log = build_table(fasta,bim)
-    if not silent: print("\n\033[1mFinding misalignments...\033[0m\n")
+    log = output(silent=silent)
+    log.new("\033[1mLoading files...\033[0m",otr=True)
+    bim, out = build_table(fasta,bim)
+    if len(out) > 0
+		log.new(out, stderr=True, postfix="\n\n")
+    log.new("\n\033[1mFinding misalignments...\033[0m\n",otr=True)
     bim, out = test(bim)
-    if not silent: print(out)
-    log += "\n\n" + out
+    log.new(out)
     return bim,log
 def writeFiles(fasta, bim, outname, plink=False, silent=False):
     bim, log = run(fasta, bim, silent)
@@ -143,14 +172,12 @@ def writeFiles(fasta, bim, outname, plink=False, silent=False):
         if not silent:
             print("\n" + output.stdout.decode("utf-8"))
     elif not silent:
-        print("\nRun {}.runPlink to remove ambiguous or\n".format(outname) +
+        log.new("\nRun {}.runPlink to remove ambiguous or\n".format(outname) +
         "unmatched sites, flip reverse strand sites and use reference alleles.")
     if os.name != "nt":
         runPlink = "#!/usr/bin/env bash\n\n" + runPlink
     # Write log file.
-    log = re.sub("\\033[\[\;0-9]*m","",log) #remove ANSI escapes
-    fname = "{}.log".format(outname)
-    with open(fname,"w") as f: f.write(log+"\n")
+    log.write("{}.log".format(outname))
     fname = "{}.runPlink".format(outname)
     with open(fname,"w") as f: f.write(runPlink)
     os.chmod(fname,0o755)
