@@ -11,7 +11,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='flippyr',
-    version='0.1.7',
+    version='0.1.8',
     description='Find reference mismatches in PLINK filesets and fix them.',
     long_description=('A simple python script tosearch for allele switches,\n'
                       'strand flips, multiallelic sites, ambiguous sites,\n'
@@ -19,7 +19,7 @@ setup(
                       'table and a log file.'),
     url='https://github.com/BEFH/flippyr',
     author='Brian Fulton-Howard',
-    email='brian.fulton-howard@mssm.edu',
+    author_email='brian.fulton-howard@mssm.edu',
     license='MIT',
     keywords='bim PLINK FASTA genomics qc',
     py_modules=['flippyr'],

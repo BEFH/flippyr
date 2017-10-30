@@ -100,7 +100,7 @@ class output():
         if not self.silent:
             if self.windows: text = stripped
             if stderr:
-                print(text,sys.stderr)
+                print(text,file=sys.stderr)
             else:
                 print(text)
         if not otr:
@@ -122,12 +122,13 @@ def run(fasta, bim, silent=False):
     bim, out = test(bim)
     log.new(out)
     return bim,log
-def writeFiles(fasta, bim, outname, plink=False, silent=False):
+def writeFiles(fasta, bim, outname, plink=False, silent=False,p_suff="_flipped"):
+    #Initialize plink command
+    runPlink = "plink -bfile {a} --make-bed --out {b}".format(
+            a=re.sub("\.bim","",bim), b=outname+p_suff)
+
     bim, log = run(fasta, bim, silent)
     bim.to_csv(outname+".log.tab",sep="\t",index=False)
-
-    #Initialize plink command
-    runPlink = "plink -bfile {a} --make-bed --out {a}_flipped".format(a=outname)
 
     #Write file with ids to delete:
     dels = [i or (j in [-1,1,5]) for i, j in zip(bim.multiallelic,bim.outcome)]
@@ -190,16 +191,19 @@ def main():
     in the plink fileset""")
     parser.add_argument("bim", help=".bim file from binary plink fileset.")
     parser.add_argument("-s", "--silent", action="store_true",
-                    help="Supress output to stdout")
+                    help="Supress output to stdout.")
     parser.add_argument("-p", "--plink", action="store_true",
                     help="Run the plink command.")
     parser.add_argument("-o", "--outputPrefix", type=str, default="0",
-                    help="Change output file")
+                    help="Change output file prefix.")
+    parser.add_argument("--outputSuffix", type=str, default="_flipped",
+                    help="Change output file suffix for plink file.")
     args = parser.parse_args()
     if args.outputPrefix == "0":
         outname = os.path.splitext(args.bim)[0]
     else:
         outname = args.outputPrefix
-    writeFiles(args.fasta,args.bim,outname,args.plink,args.silent)
+    writeFiles(args.fasta,args.bim,outname,plink=args.plink,
+            silent=args.silent,p_suff=args.outputSuffix)
 if __name__ == "__main__":
     main()

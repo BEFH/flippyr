@@ -31,7 +31,8 @@ Usage:
 Command line:
 
 .. code::
-   flippyr.py [-h] [-s] [-p] [-o OUTPUTPREFIX] fasta bim
+
+   flippyr.py [-h] [-s] [-p] [-o OUTPUTPREFIX] [--outputSuffix OUTPUTSUFFIX] fasta bim
 
    A simple python script tosearch for allele switches, strand flips,
    multiallelic sites, ambiguous sites, and indels. The output is in the form of
@@ -44,10 +45,12 @@ Command line:
 
    optional arguments:
      -h, --help            show this help message and exit
-     -s, --silent          Supress output to stdout
+     -s, --silent          Supress output to stdout.
      -p, --plink           Run the plink command.
      -o OUTPUTPREFIX, --outputPrefix OUTPUTPREFIX
-                           Change output file
+                           Change output file prefix.
+     --outputSuffix OUTPUTSUFFIX
+                           Change output file suffix for plink file.
 
 Python:
 
