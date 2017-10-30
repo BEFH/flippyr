@@ -160,7 +160,7 @@ def writeFiles(fasta, bim, outname, plink=False, silent=False,p_suff="_flipped")
         bim[allele][["ref","ID"]].to_csv(
                   fname,sep="\t",index=False,header=False)
         runPlink += " --a2-allele {} 1 2 --real-ref-alleles".format(fname)
-        runPlink += " --memory 64"
+        runPlink += " --memory 256"
     else:
         open(fname, 'a').close()
     flips = None
