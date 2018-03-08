@@ -107,7 +107,7 @@ def test(df):
         df.outcome.value_counts().get, [0, 1, 3, 2, 4, 5, 6])]
     multi_sum = sum(df.multiallelic)
     indel_sum = sum(df.indel)
-    counts[0] -= sum(multi_sum + indel_sum)
+    counts[0] -= multi_sum + indel_sum
     counts.append(multi_sum)
     counts.append(indel_sum)
     counts.insert(0, df.shape[0])
