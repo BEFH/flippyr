@@ -94,7 +94,7 @@ def test(df):
     df["outcome"], df["explanation"] = zip(*[test_allele(w, x, y, z)
         for w, x, y, z in zip(df.major.values, df.minor.values,
         df.ref.values, df.complement.values)])
-    df["multiallelic"] = df[["chr", "position"]].duplicated()
+    df["multiallelic"] = df[["chr", "position"]].duplicated(keep=False)
     df["bad_alt"] = [bad_alt(a1, a2, prev_test, mult)
                      for a1, a2, prev_test, mult in
                      zip(df.minor.values, df.major.values,

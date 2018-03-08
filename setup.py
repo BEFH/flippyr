@@ -1,5 +1,5 @@
 
-"""A simple python script tosearch for allele switches, strand flips,
+"""A simple python script to search for allele switches, strand flips,
 multiallelic sites, ambiguous sites, and indels. The output is in the form of
 a .bim-like table and a log file.
 
@@ -11,7 +11,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='flippyr',
-    version='0.2.0',
+    version='0.3.0a1',
     description='Find reference mismatches in PLINK filesets and fix them.',
     long_description=('A simple python script tosearch for allele switches,\n'
                       'strand flips, multiallelic sites, ambiguous sites,\n'
