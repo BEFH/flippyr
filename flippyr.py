@@ -101,7 +101,7 @@ def test(df):
     df["outcome"], df["explanation"] = zip(*[test_allele(w, x, y, z)
         for w, x, y, z in zip(df.major.values, df.minor.values,
         df.ref.values, df.complement.values)])
-    df["indel"] = df['alt'].map(lambda x: len(x) != 1)
+    df["indel"] = df[['minor','major']].applymap(len).apply(sum, axis=1) != 2
     df["multiallelic"] = df[["chr", "position"]].duplicated(keep=False)
     counts = [0 if v is None else v for v in map(
         df.outcome.value_counts().get, [0, 1, 3, 2, 4, 5, 6])]
