@@ -32,25 +32,30 @@ Command line:
 
 .. code::
 
-   flippyr.py [-h] [-s] [-p] [-o OUTPUTPREFIX] [--outputSuffix OUTPUTSUFFIX] fasta bim
+  usage: flippyr.py [-h] [-s] [-p] [-o OUTPUTPREFIX]
+                    [--outputSuffix OUTPUTSUFFIX] [-m] [-i]
+                    fasta bim
 
-   A simple python script tosearch for allele switches, strand flips,
-   multiallelic sites, ambiguous sites, and indels. The output is in the form of
-   a .bim-like table and a log file.
+  A simple python script to search for allele switches, strand flips,
+  multiallelic sites, ambiguous sites, and indels. The output is in the form of
+  a .bim-like table and a log file.
 
-   positional arguments:
-     fasta                 Fasta file containing all chromosomes in the plink
-                           fileset
-     bim                   .bim file from binary plink fileset.
+  positional arguments:
+    fasta                 Fasta file containing all chromosomes in the plink
+                          fileset
+    bim                   .bim file from binary plink fileset.
 
-   optional arguments:
-     -h, --help            show this help message and exit
-     -s, --silent          Supress output to stdout.
-     -p, --plink           Run the plink command.
-     -o OUTPUTPREFIX, --outputPrefix OUTPUTPREFIX
-                           Change output file prefix.
-     --outputSuffix OUTPUTSUFFIX
-                           Change output file suffix for plink file.
+  optional arguments:
+    -h, --help            show this help message and exit
+    -s, --silent          Supress output to stdout.
+    -p, --plink           Run the plink command.
+    -o OUTPUTPREFIX, --outputPrefix OUTPUTPREFIX
+                          Change output file prefix.
+    --outputSuffix OUTPUTSUFFIX
+                          Change output file suffix for plink file.
+    -m, --keepMultiallelic
+                          Do not delete multiallelic sites.
+    -i, --keepIndels      Do not delete insertions/deletions.
 
 Python:
 

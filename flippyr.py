@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""usage: flipper.py [-h] [-s] [-p] [-o OUTPUTPREFIX] fasta bim
+"""usage: flippyr.py [-h] [-s] [-p] [-o OUTPUTPREFIX]
+                  [--outputSuffix OUTPUTSUFFIX] [-m] [-i]
+                  fasta bim
 
-A simple python script tosearch for allele switches, strand flips,
+A simple python script to search for allele switches, strand flips,
 multiallelic sites, ambiguous sites, and indels. The output is in the form of
 a .bim-like table and a log file.
 
@@ -12,10 +14,15 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  -s, --silent          Supress output to stdout
+  -s, --silent          Supress output to stdout.
   -p, --plink           Run the plink command.
   -o OUTPUTPREFIX, --outputPrefix OUTPUTPREFIX
-                        Change output file"""
+                        Change output file prefix.
+  --outputSuffix OUTPUTSUFFIX
+                        Change output file suffix for plink file.
+  -m, --keepMultiallelic
+                        Do not delete multiallelic sites.
+  -i, --keepIndels      Do not delete insertions/deletions."""
 
 import sys
 import argparse
@@ -61,32 +68,32 @@ def build_table(fasta, bim):
     return df, log
 
 
+def bad_alt(a1a2):
+    '''Look for any bad alleles.'''
+    valid = ['A', 'T', 'C', 'G']
+    if len("".join(a1a2)) > 2:
+        a1a2.sort(key = len)
+        return a1a2[0] not in valid
+    return any([a not in valid for a in a1a2])
+
+
 def test_allele(major, minor, ref, complement):
     '''conditions for flipping, reversal, etc.'''
-    if len(major + minor) != 2:
-        result = (-1, "indel")
+    if bad_alt([major, minor]):
+        result = (1, "invalid")
     elif major + minor in ["AT", "TA", "GC", "CG"]:
-        result = (1, "ambiguous")
+        result = (2, "ambiguous")
     elif major == ref:
         result = (0, "match")
     elif major == complement:
-        result = (2, "strand")
+        result = (3, "strand")
     elif minor == ref:
-        result = (3, "allele")
+        result = (4, "allele")
     elif minor == complement:
-        result = (4, "strand and allele")
+        result = (5, "strand and allele")
     else:
-        result = (5, "no match")
+        result = (6, "no match")
     return result
-
-
-def bad_alt(a1, a2, prev_test, mult):
-    '''Look for bad minor alleles. a1 is minor.'''
-    if mult:
-        return False
-    if prev_test in [3, 4]:
-        a1, a2 = [a2, a1]
-    return a1 not in ['A', 'T', 'C', 'G']
 
 
 def test(df):
@@ -94,28 +101,30 @@ def test(df):
     df["outcome"], df["explanation"] = zip(*[test_allele(w, x, y, z)
         for w, x, y, z in zip(df.major.values, df.minor.values,
         df.ref.values, df.complement.values)])
+    df["indel"] = df['alt'].map(lambda x: len(x) != 1)
     df["multiallelic"] = df[["chr", "position"]].duplicated(keep=False)
-    df["bad_alt"] = [bad_alt(a1, a2, prev_test, mult)
-                     for a1, a2, prev_test, mult in
-                     zip(df.minor.values, df.major.values,
-                     df.outcome.values, df.multiallelic.values)]
     counts = [0 if v is None else v for v in map(
-        df.outcome.value_counts().get, [0, 1, 3, 2, 4, -1, 5])]
-    counts.insert(-2, sum(df.multiallelic))
+        df.outcome.value_counts().get, [0, 1, 3, 2, 4, 5, 6])]
+    multi_sum = sum(df.multiallelic)
+    indel_sum = sum(df.indel)
+    counts[0] -= sum(multi_sum + indel_sum)
+    counts.append(multi_sum)
+    counts.append(indel_sum)
     counts.insert(0, df.shape[0])
-    counts.append(sum(df.bad_alt))
-    counts[1] -= counts[-1] + counts[-4]
+
+
     log = ["\033[1mThere are the following sites:",
            "\033[1;32m[{}]\033[0m total",
-           "\033[1;32m[{}]\033[0m correct",
+           "\033[1;32m[{}]\033[0m correct biallelic SNP",
+           "\033[1;32m[{}]\033[0m invalid alternate",
            "\033[1;32m[{}]\033[0m ambiguous",
-           "\033[1;32m[{}]\033[0m allele switched",
            "\033[1;32m[{}]\033[0m strand flipped",
+           "\033[1;32m[{}]\033[0m allele switched",
            "\033[1;32m[{}]\033[0m strand flipped & allele switched",
-           "\033[1;32m[{}]\033[0m multiallelic",
-           "\033[1;32m[{}]\033[0m insertion/deletion",
            "\033[1;32m[{}]\033[0m unmatched",
-           "\033[1;32m[{}]\033[0m invalid alternate"]
+           "",
+           "\033[1;32m[{}]\033[0m multiallelic",
+           "\033[1;32m[{}]\033[0m insertion/deletion"]
     log = "\n".join(log).format(*counts)
     return df, log
 
@@ -173,8 +182,8 @@ def run(fasta, bim, silent=False):
     return bim, log
 
 
-def writeFiles(fasta, bim, outname, plink=False,
-               silent=False, p_suff="_flipped"):
+def writeFiles(fasta, bim, outname, plink=False, silent=False,
+               p_suff="_flipped", multi=False, indel=False):
     # Initialize plink command
     runPlink = "plink -bfile {a} --make-bed --out {b}".format(
         a=re.sub("\.bim", "", bim), b=outname + p_suff)
@@ -183,8 +192,13 @@ def writeFiles(fasta, bim, outname, plink=False,
     bim.to_csv(outname + ".log.tab", sep="\t", index=False)
 
     # Write file with ids to delete:
-    dels = [i or k or (j in [-1, 1, 5]) for i, j, k
-            in zip(bim.multiallelic, bim.outcome, bim.bad_alt)]
+    dels = [state in [1, 2, 6] for state in bim.outcome]
+    # [invalid, ambiguous, or no match]
+    if not indel: # not -i or --keepIndels
+        dels = [d or indel_ for d, indel_ in zip(dels, bim.indel)]
+    if not multi: # not -m or --keepMultiallelic
+        dels = [d or multi_ for d, multi_ in zip(dels, bim.multiallelic)]
+
     fname = outname + ".delete"
     if any(dels):
         bim[dels]["ID"].to_csv(fname, sep="\t", index=False, header=False)
@@ -254,13 +268,18 @@ def main():
                         help="Change output file prefix.")
     parser.add_argument("--outputSuffix", type=str, default="_flipped",
                         help="Change output file suffix for plink file.")
+    parser.add_argument("-m", "--keepMultiallelic", action="store_true",
+                        help="Do not delete multiallelic sites.")
+    parser.add_argument("-i", "--keepIndels", action="store_true",
+                        help="Do not delete insertions/deletions.")
     args = parser.parse_args()
     if args.outputPrefix == "0":
         outname = os.path.splitext(args.bim)[0]
     else:
         outname = args.outputPrefix
     writeFiles(args.fasta, args.bim, outname, plink=args.plink,
-               silent=args.silent, p_suff=args.outputSuffix)
+               silent=args.silent, p_suff=args.outputSuffix,
+               multi=args.keepMultiallelic, indel=args.keepIndels)
 
 
 if __name__ == "__main__":
