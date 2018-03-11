@@ -54,7 +54,7 @@ def build_table(fasta, bim):
     df = pd.read_csv(bim, sep="\t", header=None, usecols=[0, 1, 3, 4, 5],
                      names=["chr", "ID", "position", "minor", "major"],
                      dtype={"chr": str, "ID": str, "position": int,
-                            "minor": str, "major": str})
+                            "minor": str, "major": str}, engine="c")
     inbim = set(df.chr)  # get set of chr in bim file.
     df['ref'], df['complement'], infa = get_ref(
         df.chr.values, df.position.values, fasta)
@@ -71,9 +71,11 @@ def build_table(fasta, bim):
 def bad_alt(a1a2):
     '''Look for any bad alleles.'''
     valid = ['A', 'T', 'C', 'G']
-    if len("".join(a1a2)) > 2:
-        a1a2.sort(key = len)
-        return a1a2[0] not in valid
+    if len(a1a2[0]) > 1:
+        if len(a1a2[1]) > 1:
+            return True
+        else:
+            return a1a2[1] not in valid
     return any([a not in valid for a in a1a2])
 
 
@@ -101,7 +103,7 @@ def test(df):
     df["outcome"], df["explanation"] = zip(*[test_allele(w, x, y, z)
         for w, x, y, z in zip(df.major.values, df.minor.values,
         df.ref.values, df.complement.values)])
-    df["indel"] = df[['minor','major']].applymap(len).apply(sum, axis=1) != 2
+    df["indel"] = [len(x) != 2 for x in df[['minor','major']].sum(axis=1)]
     df["multiallelic"] = df[["chr", "position"]].duplicated(keep=False)
     counts = [0 if v is None else v for v in map(
         df.outcome.value_counts().get, [0, 1, 3, 2, 4, 5, 6])]
@@ -209,7 +211,7 @@ def writeFiles(fasta, bim, outname, plink=False, silent=False,
     dels = None
 
     # Write file with ids to flip:
-    flips = [i in [2, 4] for i in bim.outcome]
+    flips = [i in [3, 5] for i in bim.outcome]
     fname = outname + ".flip"
     if any(flips):
         bim[flips]["ID"].to_csv(fname, sep="\t", index=False, header=False)
@@ -219,7 +221,7 @@ def writeFiles(fasta, bim, outname, plink=False, silent=False,
     flips = None
 
     # Write file with ref alleles and IDs to allele correct:
-    allele = [i in [3, 4] for i in bim.outcome]
+    allele = [i in [4, 5] for i in bim.outcome]
     fname = outname + ".allele"
     if any(allele):
         bim[allele][["ref", "ID"]].to_csv(fname, sep="\t",
