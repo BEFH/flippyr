@@ -187,7 +187,7 @@ def run(fasta, bim, silent=False):
 def writeFiles(fasta, bim, outname, plink=False, silent=False,
                p_suff="_flipped", multi=False, indel=False):
     # Initialize plink command
-    runPlink = "plink -bfile {a} --make-bed --out {b}".format(
+    runPlink = "plink -bfile {a} --make-bed --out {b} --real-ref-alleles".format(
         a=re.sub("\.bim", "", bim), b=outname + p_suff)
 
     bim, log = run(fasta, bim, silent)
@@ -226,7 +226,7 @@ def writeFiles(fasta, bim, outname, plink=False, silent=False,
     if any(allele):
         bim[allele][["ref", "ID"]].to_csv(fname, sep="\t",
                                           index=False, header=False)
-        runPlink += " --a2-allele {} 1 2 --real-ref-alleles".format(fname)
+        runPlink += " --a2-allele {} 1 2".format(fname)
         runPlink += " --memory 256"
     else:
         open(fname, 'a').close()
