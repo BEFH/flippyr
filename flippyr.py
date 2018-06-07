@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """usage: flippyr.py [-h] [-s] [-p] [-o OUTPUTPREFIX]
                   [--outputSuffix OUTPUTSUFFIX] [-m] [-i]
-                  fasta bim
+                  [--plinkMem PLINKMEM] fasta bim
 
 A simple python script to search for allele switches, strand flips,
 multiallelic sites, ambiguous sites, and indels. The output is in the form of
@@ -22,7 +22,8 @@ optional arguments:
                         Change output file suffix for plink file.
   -m, --keepMultiallelic
                         Do not delete multiallelic sites.
-  -i, --keepIndels      Do not delete insertions/deletions."""
+  -i, --keepIndels      Do not delete insertions/deletions.
+  --plinkMem            Set the memory limit for plink."""
 
 import sys
 import argparse
@@ -103,7 +104,7 @@ def test(df):
     df["outcome"], df["explanation"] = zip(*[test_allele(w, x, y, z)
         for w, x, y, z in zip(df.major.values, df.minor.values,
         df.ref.values, df.complement.values)])
-    df["indel"] = [len(x) != 2 for x in df[['minor','major']].sum(axis=1)]
+    df["indel"] = [len(x) != 2 for x in df[['minor', 'major']].sum(axis=1)]
     df["multiallelic"] = df[["chr", "position"]].duplicated(keep=False)
     counts = [0 if v is None else v for v in map(
         df.outcome.value_counts().get, [0, 1, 3, 2, 4, 5, 6])]
@@ -113,7 +114,6 @@ def test(df):
     counts.append(multi_sum)
     counts.append(indel_sum)
     counts.insert(0, df.shape[0])
-
 
     log = ["\033[1mThere are the following sites:",
            "\033[1;32m[{}]\033[0m total",
@@ -133,6 +133,7 @@ def test(df):
 
 class output():
     "Print output to the command line."
+
     def __init__(self, silent=False, sep="\n"):
         self.windows = (os.name == "nt")
         self.silent = silent
@@ -185,10 +186,13 @@ def run(fasta, bim, silent=False):
 
 
 def writeFiles(fasta, bim, outname, plink=False, silent=False,
-               p_suff="_flipped", multi=False, indel=False):
+               p_suff="_flipped", multi=False, indel=False,
+               mem=256):
     # Initialize plink command
-    runPlink = "plink -bfile {a} --make-bed --out {b} --real-ref-alleles".format(
-        a=re.sub("\.bim", "", bim), b=outname + p_suff)
+    runPlink = ("plink -bfile {a} --make-bed --out {b} "
+                + "--real-ref-alleles".format(
+                                              a=re.sub("\.bim", "", bim),
+                                              b=outname + p_suff))
 
     bim, log = run(fasta, bim, silent)
     bim.to_csv(outname + ".log.tab", sep="\t", index=False)
@@ -196,9 +200,9 @@ def writeFiles(fasta, bim, outname, plink=False, silent=False,
     # Write file with ids to delete:
     dels = [state in [1, 2, 6] for state in bim.outcome]
     # [invalid, ambiguous, or no match]
-    if not indel: # not -i or --keepIndels
+    if not indel:  # not -i or --keepIndels
         dels = [d or indel_ for d, indel_ in zip(dels, bim.indel)]
-    if not multi: # not -m or --keepMultiallelic
+    if not multi:  # not -m or --keepMultiallelic
         dels = [d or multi_ for d, multi_ in zip(dels, bim.multiallelic)]
 
     fname = outname + ".delete"
@@ -227,7 +231,7 @@ def writeFiles(fasta, bim, outname, plink=False, silent=False,
         bim[allele][["ref", "ID"]].to_csv(fname, sep="\t",
                                           index=False, header=False)
         runPlink += " --a2-allele {} 1 2".format(fname)
-        runPlink += " --memory 256"
+        runPlink += " --memory {}".format(mem)
     else:
         open(fname, 'a').close()
     flips = None
@@ -266,6 +270,8 @@ def main():
                         help="Supress output to stdout.")
     parser.add_argument("-p", "--plink", action="store_true",
                         help="Run the plink command.")
+    parser.add_argument("--plinkMem", type=int, default=256,
+                        help="Set the memory limit for plink.")
     parser.add_argument("-o", "--outputPrefix", type=str, default="0",
                         help="Change output file prefix.")
     parser.add_argument("--outputSuffix", type=str, default="_flipped",
@@ -281,7 +287,8 @@ def main():
         outname = args.outputPrefix
     writeFiles(args.fasta, args.bim, outname, plink=args.plink,
                silent=args.silent, p_suff=args.outputSuffix,
-               multi=args.keepMultiallelic, indel=args.keepIndels)
+               multi=args.keepMultiallelic, indel=args.keepIndels,
+               mem=args.plinkMem)
 
 
 if __name__ == "__main__":
