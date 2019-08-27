@@ -192,7 +192,7 @@ def writeFiles(fasta, bim, outname, plink=False, silent=False,
     runPlink = ("plink -bfile {a} --make-bed --out {b} "
                 "--real-ref-alleles").format(
                                              a=re.sub("\.bim", "", bim),
-                                             b=outname + p_suff))
+                                             b=outname + p_suff)
 
     bim, log = run(fasta, bim, silent)
     bim.to_csv(outname + ".log.tab", sep="\t", index=False)
