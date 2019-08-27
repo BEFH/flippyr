@@ -187,7 +187,7 @@ def run(fasta, bim, silent=False):
 
 def writeFiles(fasta, bim, outname, plink=False, silent=False,
                p_suff="_flipped", multi=False, indel=False,
-               mem=256):
+               mem="auto"):
     # Initialize plink command
     runPlink = ("plink -bfile {a} --make-bed --out {b} "
                 + "--real-ref-alleles".format(
@@ -231,7 +231,8 @@ def writeFiles(fasta, bim, outname, plink=False, silent=False,
         bim[allele][["ref", "ID"]].to_csv(fname, sep="\t",
                                           index=False, header=False)
         runPlink += " --a2-allele {} 1 2".format(fname)
-        runPlink += " --memory {}".format(mem)
+        if mem != "auto":
+            runPlink += " --memory {}".format(mem)
     else:
         open(fname, 'a').close()
     flips = None
@@ -270,7 +271,7 @@ def main():
                         help="Supress output to stdout.")
     parser.add_argument("-p", "--plink", action="store_true",
                         help="Run the plink command.")
-    parser.add_argument("--plinkMem", type=int, default=256,
+    parser.add_argument("--plinkMem", type=int, default="auto",
                         help="Set the memory limit for plink.")
     parser.add_argument("-o", "--outputPrefix", type=str, default="0",
                         help="Change output file prefix.")
