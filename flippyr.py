@@ -271,7 +271,7 @@ def main():
                         help="Supress output to stdout.")
     parser.add_argument("-p", "--plink", action="store_true",
                         help="Run the plink command.")
-    parser.add_argument("--plinkMem", type=int, default="auto",
+    parser.add_argument("--plinkMem", type=int, default=-9,
                         help="Set the memory limit for plink.")
     parser.add_argument("-o", "--outputPrefix", type=str, default="0",
                         help="Change output file prefix.")
@@ -286,10 +286,13 @@ def main():
         outname = os.path.splitext(args.bim)[0]
     else:
         outname = args.outputPrefix
+
+    mem = args.plinkMem if args.plinkMem != -9 else "auto"
+
     writeFiles(args.fasta, args.bim, outname, plink=args.plink,
                silent=args.silent, p_suff=args.outputSuffix,
                multi=args.keepMultiallelic, indel=args.keepIndels,
-               mem=args.plinkMem)
+               mem=mem)
 
 
 if __name__ == "__main__":
