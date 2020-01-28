@@ -107,7 +107,7 @@ def test(df):
     df["indel"] = [len(x) != 2 for x in df[['minor', 'major']].sum(axis=1)]
     df["multiallelic"] = df[["chr", "position"]].duplicated(keep=False)
     counts = [0 if v is None else v for v in map(
-        df.outcome.value_counts().get, [0, 1, 3, 2, 4, 5, 6])]
+        df.outcome.value_counts().get, range(7))]
     multi_sum = sum(df.multiallelic)
     indel_sum = sum(df.indel)
     counts[0] -= multi_sum + indel_sum
