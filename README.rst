@@ -1,6 +1,7 @@
 Flippyr for Python
 ==================
-**Note: Version 0.4.0** 
+**Note: Version 0.4.0** Previous versions' log files swapped the number of invalid and ambiguous variants. This did not effect the output genotypes or table, but it has been fixed.
+
 This package is designed to align a PLINK_ fileset with a FASTA_ reference genome. It identifies the following issues:
 
 .. _FASTA: https://en.wikipedia.org/wiki/FASTA_format
