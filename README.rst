@@ -1,5 +1,6 @@
 Flippyr for Python
 ==================
+**Note: Version 0.4.0** 
 This package is designed to align a PLINK_ fileset with a FASTA_ reference genome. It identifies the following issues:
 
 .. _FASTA: https://en.wikipedia.org/wiki/FASTA_format
