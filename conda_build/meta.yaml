@@ -1,9 +1,12 @@
+{% set name = "flippyr" %}
+{% set version = "0.4.0" %}
+
 package:
-  name: "flippyr"
-  version: "0.4.0"
+  name: {{ name|lower }}
+  version: {{ version }}
 
 source:
-  git_rev: 0.4.0
+  git_rev: {{ version }}
   git_url: https://github.com/BEFH/flippyr.git
 
 requirements:
@@ -17,12 +20,11 @@ requirements:
     - pandas
 
 build:
+  number: 0
+  noarch: python
+  script: "{{ PYTHON }} setup.py install --single-version-externally-managed --record=record.txt"
   entry_points:
     - flippyr = flippyr:main
-
-test:
-  imports:
-    -
 
 about:
   home: https://github.com/BEFH/flippyr
