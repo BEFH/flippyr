@@ -36,11 +36,23 @@ from pyfaidx import Fasta
 
 def get_ref(chrom, pos, fasta):
     '''Read in fasta file'''
+    def chr_replace(chrom, orig, new): # map PLINK chrom to fasta chrom
+        chrom_nochr = [re.sub("chr", "", x) for x in chrom]
+        return [new if x in orig else x for x in chrom_nochr]
     complements = {"A": "T", "T": "A", "C": "G", "G": "C"}
     fa_ = Fasta(fasta, sequence_always_upper=True,
                 as_raw=True, read_ahead=900000)
     fa_.records = {re.sub("chr", "", x): y for x, y in
                    zip(fa_.records.keys(), fa_.records.values())}
+    # steps to keep sex chromosomes and mitochondria by mapping sequences #
+    mitochroms = ['26', 'M', 'MT', '0M']
+    if 'M' in fa_.records:
+        chrom = chr_replace(chrom, mitochroms, 'M')
+    elif 'MT' in fa_.records:
+        chrom = chr_replace(chrom, mitochroms, 'MT')
+    chrom = chr_replace(chrom, ['23', '25', 'XY'], 'X')
+    chrom = chr_replace(chrom, ['24'], 'Y')
+    # done mapping sequences #
     infa = set(fa_.records.keys())  # chr in fasta file.
     cond = [chr_ in infa for chr_ in chrom]  # test if chr in fasta
     ref = [fa_[x][int(y) - 1] if z else "N"
