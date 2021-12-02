@@ -1,8 +1,8 @@
-{% set data = load_setup_py_data() %}
+{% set version = "0.5.1" %}
 
 package:
-  name: {{ data['name'] }}
-  version: {{ data['version'] }}
+  name: flippyr
+  version: {{ version }}
 
 source:
   url: https://github.com/BEFH/flippyr/archive/{{ version }}.tar.gz
