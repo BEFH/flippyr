@@ -1,4 +1,4 @@
-name: publish_conda
+name: publish_package
 
 on:
   release:
@@ -7,7 +7,7 @@ on:
       - '**'
 
 jobs:
-  publish:
+  publish_conda:
     name: Publish package to anaconda
     runs-on: ubuntu-latest
     steps:
@@ -22,3 +22,19 @@ jobs:
         test_all: true
         convert_win: false
         convert_osx: false
+  deploy_pypi:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install setuptools wheel twine
+    - name: Build and publish
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      run: |
+        python setup.py sdist bdist_wheel
+        twine upload dist/*
