@@ -26,52 +26,52 @@ optional arguments:
   --plinkMem            Set the memory limit for plink."""
 
 import sys
-import argparse
 import os
 import re
+import argparse
 
 import pandas as pd
 from pyfaidx import Fasta
 
 
-def get_ref(chrom, pos, fasta):
+def get_ref(chrom, pos, fasta, rebuild=False):
     '''Read in fasta file'''
-    def chr_replace(chrom, orig, new): # map PLINK chrom to fasta chrom
-        chrom_nochr = [re.sub("chr", "", x) for x in chrom]
-        return [new if x in orig else x for x in chrom_nochr]
+    # the following is fractionally faster than SeqIO objects and complements
+    #   from Bio.Seq
     complements = {"A": "T", "T": "A", "C": "G", "G": "C"}
     fa_ = Fasta(fasta, sequence_always_upper=True,
-                as_raw=True, read_ahead=900000)
-    fa_.records = {re.sub("chr", "", x): y for x, y in
+                as_raw=True, read_ahead=900000, rebuild=rebuild)
+    fa_.records = {x.removeprefix("chr"): y for x, y in
                    zip(fa_.records.keys(), fa_.records.values())}
     # steps to keep sex chromosomes and mitochondria by mapping sequences #
-    mitochroms = ['26', 'M', 'MT', '0M']
-    if 'M' in fa_.records:
-        chrom = chr_replace(chrom, mitochroms, 'M')
-    elif 'MT' in fa_.records:
-        chrom = chr_replace(chrom, mitochroms, 'MT')
-    chrom = chr_replace(chrom, ['23', '25', 'XY'], 'X')
-    chrom = chr_replace(chrom, ['24'], 'Y')
+    def chr_replace(chrom, orig, new): # map PLINK chrom to fasta chrom
+        return [new if x in orig else x for x in chrom]
+    chrom = [x.removeprefix("chr") for x in chrom] # remove "chr" from chrom
+    chrom = chr_replace(chrom, {'26', 'M', 'MT', '0M'},
+                        'M' if 'M' in fa_.records else 'MT')
+    chrom = chr_replace(chrom, {'23', '25', 'XY'}, 'X')
+    chrom = chr_replace(chrom, {'24'}, 'Y')
     # done mapping sequences #
     infa = set(fa_.records.keys())  # chr in fasta file.
-    cond = [chr_ in infa for chr_ in chrom]  # test if chr in fasta
-    ref = [fa_[x][int(y) - 1] if z else "N"
-           for x, y, z in zip(chrom, pos, cond)]
-    comp = [complements.get(x) for x in ref]  # get complements of ref allele
+    missing = set(chrom) - infa  # chr in bim but not in fasta
+    ref = [fa_[x][int(y) - 1] if x in infa else "N"
+           for x, y in zip(chrom, pos)]
     fa_.close()  # Close fasta file
-    return ref, comp, infa
+    comp = [complements.get(x) for x in ref]  # get complements of ref allele
+    return ref, comp, missing
 
 
-def build_table(fasta, bim):
+def build_table(fasta, bim, rebuild_fasta=False):
     '''Parse bim and fasta'''
-    df = pd.read_csv(bim, sep="\t", header=None, usecols=[0, 1, 3, 4, 5],
+    with open(bim, 'r') as file:
+        bs = '\t' if '\t' in file.readline() else ' '
+    df = pd.read_csv(bim, sep=bs, header=None, usecols=[0, 1, 3, 4, 5],
                      names=["chr", "ID", "position", "minor", "major"],
                      dtype={"chr": str, "ID": str, "position": int,
                             "minor": str, "major": str}, engine="c")
-    inbim = set(df.chr)  # get set of chr in bim file.
-    df['ref'], df['complement'], infa = get_ref(
-        df.chr.values, df.position.values, fasta)
-    if not inbim.issubset(infa):
+    df['ref'], df['complement'], missing = get_ref(
+        df.chr.values, df.position.values, fasta, rebuild_fasta)
+    if missing:
         log = "".join(["\033[1;31mWarning:\033[0;31m Fasta file does not ",
                        "contain all chromosomes. Variants\non any chromosome ",
                        "not in the fasta file will be marked as missing.",
@@ -81,22 +81,14 @@ def build_table(fasta, bim):
     return df, log
 
 
-def bad_alt(a1a2):
-    '''Look for any bad alleles.'''
-    valid = ['A', 'T', 'C', 'G']
-    if len(a1a2[0]) > 1:
-        if len(a1a2[1]) > 1:
-            return True
-        else:
-            return a1a2[1] not in valid
-    return any([a not in valid for a in a1a2])
-
-
 def test_allele(major, minor, ref, complement):
     '''conditions for flipping, reversal, etc.'''
-    if bad_alt([major, minor]):
+    a1a2 = major + minor
+    if not all(char in {'A', 'T', 'C', 'G'} for char in a1a2):
         result = (1, "invalid")
-    elif major + minor in ["AT", "TA", "GC", "CG"]:
+    elif len(a1a2) != 2:
+        result = (7, "indel") # 0 is taken for good variants
+    elif a1a2 in ["AT", "TA", "GC", "CG"]:
         result = (2, "ambiguous")
     elif major == ref:
         result = (0, "match")
@@ -113,18 +105,16 @@ def test_allele(major, minor, ref, complement):
 
 def test(df):
     '''function to test ref and alt'''
-    df["outcome"], df["explanation"] = zip(*[test_allele(w, x, y, z)
-        for w, x, y, z in zip(df.major.values, df.minor.values,
+    df["outcome"], df["explanation"] = zip(*[test_allele(maj, mnr, ref, com)
+        for maj, mnr, ref, com in zip(df.major.values, df.minor.values,
         df.ref.values, df.complement.values)])
-    df["indel"] = [len(x) != 2 for x in df[['minor', 'major']].sum(axis=1)]
+    df["indel"] = [x == 7 for x in df.outcome]
     df["multiallelic"] = df[["chr", "position"]].duplicated(keep=False)
     counts = [0 if v is None else v for v in map(
-        df.outcome.value_counts().get, range(7))]
+        df.outcome.value_counts().get, range(8))]
     multi_sum = sum(df.multiallelic)
-    indel_sum = sum(df.indel)
-    counts[0] -= multi_sum + indel_sum
+    counts[0] -= multi_sum
     counts.append(multi_sum)
-    counts.append(indel_sum)
     counts.insert(0, df.shape[0])
 
     log = ["\033[1mThere are the following sites:",
@@ -137,8 +127,8 @@ def test(df):
            "\033[1;32m[{}]\033[0m strand flipped & allele switched",
            "\033[1;32m[{}]\033[0m unmatched",
            "",
-           "\033[1;32m[{}]\033[0m multiallelic",
-           "\033[1;32m[{}]\033[0m insertion/deletion"]
+           "\033[1;32m[{}]\033[0m insertion/deletion",
+           "\033[1;32m[{}]\033[0m multiallelic"]
     log = "\n".join(log).format(*counts)
     return df, log
 
@@ -177,7 +167,7 @@ class output():
     @staticmethod
     def strip(text):
         "remove ANSI escapes"
-        return re.sub("\\033[\[\;0-9]*m", "", text)
+        return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
     def write(self, fname):
         '''write log to file'''
@@ -186,10 +176,10 @@ class output():
             f.write(log + "\n")
 
 
-def run(fasta, bim, silent=False):
+def run(fasta, bim, silent=False, rebuild_fasta=False):
     log = output(silent=silent)
     log.new("\033[1mLoading files...\033[0m", otr=True)
-    bim, out = build_table(fasta, bim)
+    bim, out = build_table(fasta, bim, rebuild_fasta)
     if not out:
         log.new("\n\033[1mFinding misalignments...\033[0m\n", otr=True)
     bim, out = test(bim)
@@ -199,14 +189,14 @@ def run(fasta, bim, silent=False):
 
 def writeFiles(fasta, bim, outname, plink=False, silent=False,
                p_suff="_flipped", multi=False, indel=False,
-               mem="auto"):
+               mem="auto", rebuild_fasta=False):
     # Initialize plink command
-    runPlink = ("plink -bfile {a} --make-bed --out {b} "
+    runPlink = ("plink --bfile {a} --make-bed --out {b} "
                 "--real-ref-alleles").format(
-                                             a=re.sub("\.bim", "", bim),
+                                             a=re.sub(r"\.bim", "", bim),
                                              b=outname + p_suff)
 
-    bim, log = run(fasta, bim, silent)
+    bim, log = run(fasta, bim, silent, rebuild_fasta)
     bim.to_csv(outname + ".log.tab", sep="\t", index=False)
 
     # Write file with ids to delete:
@@ -293,6 +283,8 @@ def main():
                         help="Do not delete multiallelic sites.")
     parser.add_argument("-i", "--keepIndels", action="store_true",
                         help="Do not delete insertions/deletions.")
+    parser.add_argument("--rebuildFasta", action="store_true",
+                        help="Rebuild the fasta index if out of date.")
     args = parser.parse_args()
     if args.outputPrefix == "0":
         outname = os.path.splitext(args.bim)[0]
@@ -304,7 +296,7 @@ def main():
     writeFiles(args.fasta, args.bim, outname, plink=args.plink,
                silent=args.silent, p_suff=args.outputSuffix,
                multi=args.keepMultiallelic, indel=args.keepIndels,
-               mem=mem)
+               rebuild_fasta=args.rebuildFasta, mem=mem)
 
 
 if __name__ == "__main__":
